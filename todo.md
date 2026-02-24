@@ -1,4 +1,4 @@
-# DriverTracker - Project TODO
+# RiderTracker - Project TODO
 
 ## Mobile App (React Native)
 - [x] Configure app branding (logo, app name)

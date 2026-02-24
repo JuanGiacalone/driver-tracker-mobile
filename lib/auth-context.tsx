@@ -7,13 +7,13 @@ export interface AuthState {
   isSignout: boolean;
   userToken: string | null;
   riderId: string | null;
-  email: string | null;
+  username: string | null;
   error: string | null;
 }
 
 export interface AuthContextType {
   state: AuthState;
-  login: (email: string, password: string, apiUrl: string) => Promise<void>;
+  login: (username: string, password: string, apiUrl: string) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
 }
@@ -21,8 +21,8 @@ export interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 type AuthAction =
-  | { type: "RESTORE_TOKEN"; payload: { token: string; riderId: string; email: string } }
-  | { type: "SIGN_IN"; payload: { token: string; riderId: string; email: string } }
+  | { type: "RESTORE_TOKEN"; payload: { token: string; riderId: string; username: string } }
+  | { type: "SIGN_IN"; payload: { token: string; riderId: string; username: string } }
   | { type: "SIGN_OUT" }
   | { type: "SET_ERROR"; payload: string }
   | { type: "CLEAR_ERROR" };
@@ -32,7 +32,7 @@ const initialState: AuthState = {
   isSignout: false,
   userToken: null,
   riderId: null,
-  email: null,
+  username: null,
   error: null,
 };
 
@@ -44,7 +44,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         isSignout: false,
         userToken: action.payload.token,
         riderId: action.payload.riderId,
-        email: action.payload.email,
+        username: action.payload.username,
         error: null,
       };
     case "SIGN_IN":
@@ -53,7 +53,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         isSignout: false,
         userToken: action.payload.token,
         riderId: action.payload.riderId,
-        email: action.payload.email,
+        username: action.payload.username,
         error: null,
       };
     case "SIGN_OUT":
@@ -62,7 +62,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         isSignout: true,
         userToken: null,
         riderId: null,
-        email: null,
+        username: null,
         error: null,
       };
     case "SET_ERROR":
@@ -90,12 +90,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const token = await SecureStore.getItemAsync("userToken");
         const riderId = await SecureStore.getItemAsync("riderId");
-        const email = await SecureStore.getItemAsync("email");
+        const username = await SecureStore.getItemAsync("username");
 
-        if (token && riderId && email) {
+        if (token && riderId && username) {
           dispatch({
             type: "RESTORE_TOKEN",
-            payload: { token, riderId, email },
+            payload: { token, riderId, username },
           });
         } else {
           dispatch({ type: "SIGN_OUT" });
@@ -110,10 +110,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const authContext: AuthContextType = {
     state,
-    login: async (email: string, password: string, apiUrl: string) => {
+    login: async (username: string, password: string, apiUrl: string) => {
       try {
         const response = await axios.post(`${apiUrl}/api/login`, {
-          email,
+          username,
           password,
         });
 
@@ -122,11 +122,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Store securely
         await SecureStore.setItemAsync("userToken", token);
         await SecureStore.setItemAsync("riderId", riderId);
-        await SecureStore.setItemAsync("email", email);
+        await SecureStore.setItemAsync("username", username);
 
         dispatch({
           type: "SIGN_IN",
-          payload: { token, riderId, email },
+          payload: { token, riderId, username },
         });
       } catch (error: any) {
         const message = error.response?.data?.error || "Error de autenticación";
@@ -138,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         await SecureStore.deleteItemAsync("userToken");
         await SecureStore.deleteItemAsync("riderId");
-        await SecureStore.deleteItemAsync("email");
+        await SecureStore.deleteItemAsync("username");
         dispatch({ type: "SIGN_OUT" });
       } catch (error) {
         console.error("Logout error:", error);

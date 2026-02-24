@@ -86,7 +86,7 @@ export default function ShiftScreen() {
       "Confirmar",
       "¿Deseas finalizar tu turno?",
       [
-        { text: "Cancelar", onPress: () => {} },
+        { text: "Cancelar", onPress: () => { } },
         {
           text: "Finalizar",
           onPress: async () => {
@@ -129,13 +129,13 @@ export default function ShiftScreen() {
           {/* Header */}
           <View>
             <Text className="text-3xl font-bold text-gray-900 mb-1">
-              DriverTracker
+              RiderTracker
             </Text>
             <Text className="text-sm text-gray-600 mb-1">
-              Bienvenido, {state.email}
+              Bienvenido, {state.username}
             </Text>
-            <Text className="text-xs text-gray-500">
-              ID: {state.riderId?.substring(0, 20)}...
+            <Text className="text-sm text-gray-500">
+              {state.riderId}
             </Text>
           </View>
 
@@ -157,8 +157,8 @@ export default function ShiftScreen() {
                 </Text>
                 <Text className="text-sm text-gray-600 text-center">
                   {shiftActive
-                    ? "Tu ubicación se está compartiendo en tiempo real"
-                    : "Inicia un turno para comenzar el rastreo"}
+                    ? "Compartiendo ubicación..."
+                    : "Inicia tu turno!"}
                 </Text>
               </View>
 
@@ -170,16 +170,16 @@ export default function ShiftScreen() {
                     connectionStatus === "connected"
                       ? "bg-green-500"
                       : connectionStatus === "connecting"
-                      ? "bg-yellow-500"
-                      : "bg-red-500"
+                        ? "bg-yellow-500"
+                        : "bg-red-500"
                   )}
                 />
                 <Text className="text-xs font-semibold text-gray-700">
                   {connectionStatus === "connected"
                     ? "Conectado"
                     : connectionStatus === "connecting"
-                    ? "Conectando..."
-                    : "Desconectado"}
+                      ? "Conectando..."
+                      : "Desconectado"}
                 </Text>
               </View>
             </View>
@@ -188,7 +188,7 @@ export default function ShiftScreen() {
             {currentLocation && (
               <View className="w-full bg-gray-50 rounded-lg p-4 border border-gray-200">
                 <Text className="text-xs font-semibold text-gray-600 mb-2">
-                  UBICACIÓN ACTUAL
+                  Ubicación actual
                 </Text>
                 <Text className="text-sm font-mono text-gray-900 mb-1">
                   Lat: {currentLocation.lat.toFixed(4)}
@@ -237,7 +237,7 @@ export default function ShiftScreen() {
               </Text>
             </TouchableOpacity>
             <Text className="text-xs text-gray-500 text-center">
-              v1.0.0 • DriverTracker
+              v1.0.0 • RiderTracker
             </Text>
           </View>
         </View>

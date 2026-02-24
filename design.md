@@ -1,4 +1,4 @@
-# DriverTracker Mobile App - Design Document
+# RiderTracker Mobile App - Design Document
 
 ## Screen List
 

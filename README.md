@@ -1,4 +1,4 @@
-# DriverTracker Mobile App
+# RiderTracker Mobile App
 
 A React Native (Expo) mobile application for food delivery riders to share their location in real-time during active shifts. Built with TypeScript, NativeWind (Tailwind CSS), and Socket.IO for real-time WebSocket communication.
 
@@ -208,7 +208,7 @@ Edit `app.config.ts` to customize:
 
 ```typescript
 const env = {
-  appName: "DriverTracker",
+  appName: "RiderTracker",
   appSlug: "driver-tracker-mobile",
   logoUrl: "https://...",
 };
@@ -385,7 +385,7 @@ const [connectionStatus, setConnectionStatus] = useState("disconnected");
 
 **Solutions:**
 1. Grant permission when prompted
-2. Check Settings > Apps > DriverTracker > Permissions
+2. Check Settings > Apps > RiderTracker > Permissions
 3. On Android 11+, select "Allow only while using the app"
 4. Restart app after granting permission
 
