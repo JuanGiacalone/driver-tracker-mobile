@@ -1,0 +1,67 @@
+# Implementation & Release Plan: RiderTracker Multi-Tenancy
+
+Based on the updated PRD, here is an analysis of what is currently missing in the codebase and a safe, phased approach to implementing these features.
+
+## What's Missing in the Current Codebase
+
+### 1. Database & Schema (`drizzle` & backend)
+*   **Tenants and Stores:** No concept of `tenant_id` or `store_id` in the current schema. Need `tenants` and `stores` tables, and to add `tenant_id` and `store_id` to `users`/`riders`.
+*   **Deliveries/Orders:** No table to track active deliveries, which is required to generate and validate customer access links.
+
+### 2. Backend Server ([dashboard/server.js](file:///home/jp/w0rkspace/driver-tracker-mobile/dashboard/server.js))
+*   **Authentication API:** Currently only returns JWT and `riderId`. Needs to return `tenantId` and a list of `stores` associated with the rider's tenant.
+*   **WebSocket Payload:** Needs to accept and validate `tenantId` and `storeId` in the `location` event.
+*   **Multi-tenant Isolation:** Location events need to be broadcast to tenant-specific rooms (e.g., `io.to('tenant:' + tenantId).emit(...)`).
+*   **Customer Auth/Links:** Need an endpoint to generate short-lived JWTs for temporary customer access and a WebSocket connection strategy for these temporary tokens to subscribe to specific delivery updates.
+
+### 3. Mobile App (React Native)
+*   **State & Storage:** `AuthContext` and `SecureStore` need to manage `tenantId`, `storeId`, and the list of available stores.
+*   **Store Selection UI:** A new UI component or flow to allow riders to select their active store before starting a shift. Must be disabled if a shift is active.
+*   **Location Service:** The background tracking payload must be updated to append the selected `storeId` and `tenantId`.
+
+### 4. Admin Dashboard (Web)
+*   **Tenant Isolation:** Admin UI must filter the map view and rider list by `tenantId` and optionally group by `storeId`.
+*   **Link Generation UI:** Dispatchers need a way to generate or copy the temporary tracking link upon assigning an order to a rider.
+
+### 5. Customer Web App (New Component)
+*   **Restricted Tracking View:** A new lightweight web view that accepts the temporary JWT via URL parameter.
+*   **Customer Map UI:** Needs to display customer location, store location, and live rider location with auto-refresh via WebSockets scoped to the delivery.
+
+---
+
+## Proposed Release Plan
+
+To safely implement these changes without breaking the existing core functionality, we should split the work into three logical releases.
+
+### Phase 1: Foundation & Store Selection (Multi-Tenancy Backing)
+**Goal:** Prepare the data layer and allow riders to select stores, without significantly changing the dispatcher experience yet.
+*   **Backend:** Add `tenants`, `stores` tables to the Drizzle schema. Add a migration. Update `users` table to relate to a tenant.
+*   **API:** Update the `/api/login` endpoint to return tenant details and store options.
+*   **Mobile App:** Implement the store selection UI (e.g., a modal or dropdown in the Shift Screen). Persist the choice in `SecureStore`.
+*   **WebSocket:** Update the mobile app to emit `tenantId` and `storeId` with location data. Update the backend to log these fields, but continue broadcasting to the global room as a fallback to prevent breaking the current admin view.
+
+### Phase 2: Tenant Isolation & Admin Dashboard Overhaul
+**Goal:** Enforce true multi-tenancy on the backend and update the Admin Dashboard to reflect tenant and store groupings.
+*   **Backend:** Update the Socket.io logic to broadcast events strictly to tenant-specific rooms (e.g., `room:tenant_id`).
+*   **Admin Dashboard:** Update the authentication logic for Admins to tie them to a tenant. Update the map view to connect to the specific tenant room and add visual groupings/filters for internal stores.
+*   **Verification:** Ensure no data bleed exists between tenant accounts.
+
+### Phase 3: Customer Temporary Tracking View
+**Goal:** Introduce the new Customer Persona and temporary location access.
+*   **Backend:** Create the `deliveries` table or logic to associate a rider with an active delivery ID.
+*   **API:** Create the link-generation endpoint that signs a short-lived JWT (1.5h expiry) mapping to a specific delivery ID and rider.
+*   **Customer Web View:** Build the new simplified tracking page (Next.js/React web) that connects to a dedicated WebSocket channel for the delivery.
+*   **Admin Dashboard:** Add the UI button/flow for dispatchers to generate & copy the temporary link when an order starts.
+
+### Phase 4 (Future): Order Assignment & Status Updates
+**Goal:** Implement the future enhancements identified in the PRD.
+*   Full order lifecycle management (Arrived, Delivered).
+*   Automatic invalidation of customer links upon "Delivered" status.
+*   Push notifications for order assignments.
+
+---
+
+## User Review Required
+
+Does this phased approach align with your expectations? 
+If you approve, we can begin executing **Phase 1** immediately starting with the Database Schema updates.

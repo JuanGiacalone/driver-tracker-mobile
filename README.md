@@ -77,6 +77,7 @@ This starts Metro bundler on port 8081. You can:
 
 ```bash
 npm run build
+eas build --profile preview
 ```
 
 ## Project Structure

@@ -32,11 +32,14 @@ const env = {
   appSlug: "driver-tracker-mobile",
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
-  logoUrl: "https://private-us-east-1.manuscdn.com/sessionFile/i1LKaihvBidR1eq1ZDDwVq/sandbox/Ti1DSiWSB1o3e4Zn1gEOqh-img-1_1771876266000_na1fn_aWNvbg.png?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvaTFMS2FpaHZCaWRSMWVxMVpERHdWcS9zYW5kYm94L1RpMURTaVdTQjFvM2U0Wm4xZ0VPcWgtaW1nLTFfMTc3MTg3NjI2NjAwMF9uYTFmbl9hV052YmcucG5nP3gtb3NzLXByb2Nlc3M9aW1hZ2UvcmVzaXplLHdfMTkyMCxoXzE5MjAvZm9ybWF0LHdlYnAvcXVhbGl0eSxxXzgwIiwiQ29uZGl0aW9uIjp7IkRhdGVMZXNzVGhhbiI6eyJBV1M6RXBvY2hUaW1lIjoxNzk4NzYxNjAwfX19XX0_&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=TLf4kKDgXfNoWzciRnDB36SEDaYj~p4rRj7pLxXlOTtyBuP69UXlMbu0eV5yDo4IDzoaowWkkRdHiz6LTG87DWKQICWH0YQLbh4ryqjGOJZMjP9Ax5pteKsJBCcjnjUg0m7OQUOIFNMPpL-2nhAJkxFxTwPAJJ6m-AmBXJco79bd6XalxkhYQRaByBsdnSBYItjEtIG8-8xwsiZ-ZKTFW6Peq8A0DF4z~qfBi8C2cEH-6geQI2x6snmlsSd~58A62FVuTHrTTIJ5qozqHnzGgEb1Tk4DuPqBI-~r1QWiNxKOnkJTW-xXL-tO3LttTu5OMZVZ89nnazMnHy7iSK1xxA__",
+  // https://private-us-east-1.manuscdn.com/sessionFile/i1LKaihvBidR1eq1ZDDwVq/sandbox/Ti1DSiWSB1o3e4Zn1gEOqh-img-1_1771876266000_na1fn_aWNvbg.png?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvaTFMS2FpaHZCaWRSMWVxMVpERHdWcS9zYW5kYm94L1RpMURTaVdTQjFvM2U0Wm4xZ0VPcWgtaW1nLTFfMTc3MTg3NjI2NjAwMF9uYTFmbl9hV052YmcucG5nP3gtb3NzLXByb2Nlc3M9aW1hZ2UvcmVzaXplLHdfMTkyMCxoXzE5MjAvZm9ybWF0LHdlYnAvcXVhbGl0eSxxXzgwIiwiQ29uZGl0aW9uIjp7IkRhdGVMZXNzVGhhbiI6eyJBV1M6RXBvY2hUaW1lIjoxNzk4NzYxNjAwfX19XX0_&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=TLf4kKDgXfNoWzciRnDB36SEDaYj~p4rRj7pLxXlOTtyBuP69UXlMbu0eV5yDo4IDzoaowWkkRdHiz6LTG87DWKQICWH0YQLbh4ryqjGOJZMjP9Ax5pteKsJBCcjnjUg0m7OQUOIFNMPpL-2nhAJkxFxTwPAJJ6m-AmBXJco79bd6XalxkhYQRaByBsdnSBYItjEtIG8-8xwsiZ-ZKTFW6Peq8A0DF4z~qfBi8C2cEH-6geQI2x6snmlsSd~58A62FVuTHrTTIJ5qozqHnzGgEb1Tk4DuPqBI-~r1QWiNxKOnkJTW-xXL-tO3LttTu5OMZVZ89nnazMnHy7iSK1xxA__
+  logoUrl: "",
   scheme: schemeFromBundleId,
   iosBundleId: bundleId,
   androidPackage: bundleId,
 };
+
+
 
 const config: ExpoConfig = {
   name: env.appName,
@@ -58,13 +61,19 @@ const config: ExpoConfig = {
     adaptiveIcon: {
       backgroundColor: "#E6F4FE",
       foregroundImage: "./assets/images/android-icon-foreground.png",
-      backgroundImage: "./assets/images/android-icon-background.png",
       monochromeImage: "./assets/images/android-icon-monochrome.png",
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: env.androidPackage,
-    permissions: ["POST_NOTIFICATIONS"],
+    versionCode: 4,
+    permissions: [
+      "POST_NOTIFICATIONS",
+      "ACCESS_COARSE_LOCATION",
+      "ACCESS_FINE_LOCATION",
+      "ACCESS_BACKGROUND_LOCATION",
+      "FOREGROUND_SERVICE",
+    ],
     intentFilters: [
       {
         action: "VIEW",
@@ -79,6 +88,15 @@ const config: ExpoConfig = {
       },
     ],
   },
+  notification: {
+    icon: "./assets/images/notification-icon.png",
+    color: "#0F4C81",
+  },
+  extra: {
+    eas: {
+      projectId: "e1407389-e704-4cbb-b1de-658eb92f05fb"
+    }
+  },
   web: {
     bundler: "metro",
     output: "static",
@@ -86,6 +104,16 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
+    [
+      "expo-location",
+      {
+        locationAlwaysAndWhenInUsePermission: "Permite que $(PRODUCT_NAME) use tu ubicación para el seguimiento.",
+        locationAlwaysPermission: "Permite que $(PRODUCT_NAME) use tu ubicación en segundo plano para el seguimiento.",
+        locationWhenInUsePermission: "Permite que $(PRODUCT_NAME) use tu ubicación para el seguimiento.",
+        isIosBackgroundLocationEnabled: true,
+        isAndroidBackgroundLocationEnabled: true,
+      },
+    ],
     [
       "expo-audio",
       {
@@ -117,6 +145,7 @@ const config: ExpoConfig = {
         android: {
           buildArchs: ["armeabi-v7a", "arm64-v8a"],
           minSdkVersion: 24,
+          usesCleartextTraffic: true,
         },
       },
     ],

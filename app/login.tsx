@@ -58,7 +58,7 @@ export default function LoginScreen() {
           <View className="mb-8 items-center">
             <Image
               source={require("@/assets/images/favicon.png")}
-              style={{ width: 80, height: 80, marginBottom: 16 }}
+              style={{ width: 120, height: 120, marginBottom: 16 }}
               resizeMode="contain"
             />
             <Text className="text-4xl font-bold text-blue-600 mb-2">
@@ -77,7 +77,7 @@ export default function LoginScreen() {
                 Usuario
               </Text>
               <TextInput
-                className="border border-gray-300 rounded-lg px-4 py-3 text-base bg-white"
+                className="border border-gray-300 rounded-lg px-4 py-3 text-[16px] text-black bg-white"
                 placeholder="Rider"
                 placeholderTextColor="#999"
                 value={username}
@@ -93,7 +93,7 @@ export default function LoginScreen() {
                 Contraseña
               </Text>
               <TextInput
-                className="border border-gray-300 rounded-lg px-4 py-3 text-base bg-white"
+                className="border border-gray-300 rounded-lg px-4 py-3 text-[16px] text-black bg-white"
                 placeholder="••••••••"
                 placeholderTextColor="#999"
                 value={password}
@@ -139,12 +139,12 @@ export default function LoginScreen() {
           {/* Developer Credits */}
           <View className="mt-8 mb-4 items-center">
             <Text className="text-[10px] text-gray-400 font-medium">
-              Desarrollado por JP Giacalone |{" "}
+              Desarrollado por |{" "}
               <Text
                 className="text-blue-400 font-bold"
-                onPress={() => Linking.openURL("https://giacatec.ar")}
+                onPress={() => Linking.openURL("https://giacatec.com.ar/")}
               >
-                GiacaTec.ar
+                Giacatec.com.ar
               </Text>
             </Text>
           </View>

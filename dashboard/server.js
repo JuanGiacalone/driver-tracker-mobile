@@ -28,7 +28,6 @@ app.use(express.json());
 // In-memory storage
 const activeRiders = new Map();
 const userSockets = new Map(); // Track sockets by username
-const adminRoom = "admin";
 
 // Utility function to generate a unique rider ID
 function generateRiderId(username) {
@@ -48,13 +47,20 @@ function verifyToken(token) {
 
 // Login endpoint
 app.post("/api/login", (req, res) => {
+
+    console.log("Login request:", req.body);
     const { username, password } = req.body;
 
     if (!username || !password) {
         return res.status(400).json({ error: "Username and password required" });
     }
 
-    const user = db.prepare('SELECT * FROM users WHERE username = ? AND password = ?').get(username, password);
+    const user = db.prepare(`
+        SELECT u.*, t.name as tenant_name 
+        FROM users u 
+        JOIN tenants t ON u.tenant_id = t.id 
+        WHERE u.username = ? AND u.password = ?
+    `).get(username, password);
 
     if (!user) {
         return res.status(401).json({ error: "Invalid credentials" });
@@ -63,12 +69,15 @@ app.post("/api/login", (req, res) => {
     const riderId = generateRiderId(username);
     const isAdmin = user.is_admin === 1;
     const token = jwt.sign(
-        { username, riderId, isAdmin: isAdmin },
+        { username, riderId, isAdmin: isAdmin, tenantId: user.tenant_id, tenantName: user.tenant_name },
         process.env.JWT_SECRET,
         { expiresIn: "24h" }
     );
 
-    res.json({ token, riderId, username });
+    // Fetch stores for this user's tenant
+    const stores = db.prepare('SELECT id, name, lat, lng FROM stores WHERE tenant_id = ?').all(user.tenant_id);
+
+    res.json({ token, riderId, username, tenantId: user.tenant_id, tenantName: user.tenant_name, stores });
 });
 
 // Health check endpoint
@@ -88,7 +97,7 @@ app.get("/api/stores", (req, res) => {
     }
 
     try {
-        const stores = db.prepare('SELECT id, name, lat, lng FROM stores').all();
+        const stores = db.prepare('SELECT id, name, lat, lng FROM stores WHERE tenant_id = ?').all(decoded.tenantId);
         res.json(stores);
     } catch (error) {
         console.error("Error fetching stores:", error);
@@ -108,7 +117,7 @@ app.post("/api/stores", (req, res) => {
         return res.status(403).json({ error: "Unauthorized: Admin access required" });
     }
 
-    const { name, lat, lng } = req.body;
+    const { tenantId, name, lat, lng } = req.body;
 
     if (!name) {
         return res.status(400).json({ error: "Store name is required" });
@@ -116,8 +125,8 @@ app.post("/api/stores", (req, res) => {
 
     try {
         const result = db.prepare(
-            'INSERT INTO stores (name, lat, lng) VALUES (?, ?, ?)'
-        ).run(name, lat || null, lng || null);
+            'INSERT INTO stores (tenant_id, name, lat, lng) VALUES (?, ?, ?, ?)'
+        ).run(tenantId, name, lat || null, lng || null);
 
         res.status(201).json({
             success: true,
@@ -133,6 +142,48 @@ app.post("/api/stores", (req, res) => {
     }
 });
 
+// POST /api/location - Background location updates
+app.post("/api/location", (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: "Missing authorization header" });
+
+    const token = authHeader.split(" ")[1];
+    const decoded = verifyToken(token);
+
+    if (!decoded) {
+        return res.status(401).json({ error: "Invalid token" });
+    }
+
+    const { riderId, tenantId, tenantName } = decoded;
+    const { lat, lng, ts, storeId } = req.body;
+
+    if (typeof lat !== "number" || typeof lng !== "number") {
+        return res.status(400).json({ error: "Invalid coordinates" });
+    }
+
+    // Update internal state
+    activeRiders.set(riderId, {
+        lat,
+        lng,
+        ts: ts || Date.now(),
+        storeId,
+        tenantId
+    });
+
+    // Broadcast update to tenant-specific room
+    const tenantRoom = tenantName || `Tenant_${tenantId}`;
+    io.to(tenantRoom).emit("rider-update", {
+        riderId,
+        lat,
+        lng,
+        ts: ts || Date.now(),
+        storeId,
+        tenantId
+    });
+    console.log(`[REST-Location] ${riderId} (Tenant: ${tenantName}, Store: ${storeId}): ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+    res.json({ success: true });
+});
+
 // POST /api/riders - Add a new rider
 app.post("/api/riders", (req, res) => {
     const authHeader = req.headers.authorization;
@@ -144,17 +195,15 @@ app.post("/api/riders", (req, res) => {
     if (!decoded || !decoded.isAdmin) {
         return res.status(403).json({ error: "Unauthorized: Admin access required" });
     }
-
-    const { username, password, storeId } = req.body;
+    const { username, password, storeId, isAdmin, tenantId } = req.body;
 
     if (!username || !password || !storeId) {
         return res.status(400).json({ error: "Username, password and storeId are required" });
     }
-
     try {
         const result = db.prepare(
-            'INSERT INTO users (username, password, is_admin, store_id) VALUES (?, ?, 0, ?)'
-        ).run(username, password, storeId);
+            'INSERT INTO users (tenant_id, username, password, is_admin, store_id) VALUES (?, ?, ?, ?, ?)'
+        ).run(tenantId, username, password, isAdmin ? 1 : 0, storeId);
 
         res.status(201).json({ success: true, userId: result.lastInsertRowid });
     } catch (error) {
@@ -184,8 +233,15 @@ io.on("connection", (socket) => {
         return;
     }
 
-    const { username, riderId, isAdmin } = decoded;
-    console.log(`[Socket] Authenticated: ${riderId} (username: ${username}, admin: ${isAdmin})`);
+    const { username, riderId, isAdmin, tenantId, tenantName } = decoded;
+
+    // Fallback to fetching tenant name if token doesn't have it (for backwards compatibility with old tokens)
+    let activeTenantName = tenantName;
+
+    const tenant = db.prepare('SELECT name FROM tenants WHERE id = ?').get(tenantId);
+    activeTenantName = tenant ? tenant.name : `Tenant_${tenantId}`;
+
+    console.log(`[Socket] Authenticated: ${riderId} (username: ${username}, admin: ${isAdmin}, tenant: ${activeTenantName})`);
 
     // Fetch storeId for riders
     let storeId = null;
@@ -202,6 +258,13 @@ io.on("connection", (socket) => {
     }
     userSockets.set(username, socket);
 
+    // Join tenant room immediately upon connection for isolation
+    const tenantRoom = activeTenantName; // Using tenant name instead of ID
+    socket.join(tenantRoom);
+    if (!isAdmin) {
+        console.log(`[Socket] ${username} joined room: ${tenantRoom}`);
+    }
+
     // Common disconnect handler for all roles
     socket.on("disconnect", () => {
         console.log(`[Socket] Disconnected: ${riderId} (${username})`);
@@ -211,21 +274,20 @@ io.on("connection", (socket) => {
 
         if (!isAdmin) {
             activeRiders.delete(riderId);
-            io.to(adminRoom).emit("rider-offline", { riderId });
+            io.to(tenantRoom).emit("rider-offline", { riderId });
         }
     });
 
     if (isAdmin) {
-        socket.join(adminRoom);
-        console.log(`[Socket] Admin joined room: ${adminRoom}`);
+        console.log(`[Socket] Admin ${username} joined room: ${tenantRoom}`);
 
-        // Send initial state to admin
-        const initialState = Array.from(activeRiders.entries()).map(
-            ([id, data]) => ({
+        // Send initial state to admin (filtered by their tenant)
+        const initialState = Array.from(activeRiders.entries())
+            .filter(([id, data]) => data.tenantId === tenantId)
+            .map(([id, data]) => ({
                 riderId: id,
                 ...data,
-            })
-        );
+            }));
         socket.emit("initial-state", initialState);
     } else {
         // Rider connection
@@ -233,7 +295,11 @@ io.on("connection", (socket) => {
 
         // Handle location updates
         socket.on("location", (data) => {
-            const { lat, lng, ts } = data;
+            const { lat, lng, ts, storeId: payloadStoreId, tenantName: payloadTenantName } = data;
+
+            // Allow client to override storeId if provided, otherwise use the one fetched from DB
+            const activeStoreId = payloadStoreId || storeId;
+            const activeTenantName = payloadTenantName || tenantName;
 
             // Validate coordinates
             if (typeof lat !== "number" || typeof lng !== "number") {
@@ -247,16 +313,17 @@ io.on("connection", (socket) => {
             }
 
             // Update active riders map
-            activeRiders.set(riderId, { lat, lng, ts, storeId });
-            console.log(`[Location] ${riderId} (Store: ${storeId}): ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+            activeRiders.set(riderId, { lat, lng, ts, storeId: activeStoreId, tenantName: activeTenantName });
+            console.log(`[WS-Location] ${riderId} (Tenant: ${activeTenantName}, Store: ${activeStoreId}): ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
 
-            // Broadcast to admin room
-            io.to(adminRoom).emit("rider-update", {
+            // Broadcast to tenant-specific room
+            io.to(tenantRoom).emit("rider-update", {
                 riderId,
                 lat,
                 lng,
                 ts,
-                storeId,
+                storeId: activeStoreId,
+                tenantName: activeTenantName,
             });
         });
 
@@ -264,7 +331,7 @@ io.on("connection", (socket) => {
         socket.on("end-shift", () => {
             console.log(`[Shift] ${riderId} ended shift`);
             activeRiders.delete(riderId);
-            io.to(adminRoom).emit("rider-offline", { riderId });
+            io.to(tenantRoom).emit("rider-offline", { riderId });
         });
     }
 });

@@ -141,7 +141,7 @@
 
     <!-- Developer Credits -->
     <div class="developer-credits">
-        Desarrollado por JP Giacalone | <a href="https://giacatec.ar" target="_blank">GiacaTec.ar</a>
+        Desarrollado por <a href="https://giacatec.com.ar" target="_blank">Giacatec</a>
     </div>
 
     <script>
@@ -297,6 +297,7 @@
                 if (data.token) {
                     authToken = data.token;
                     localStorage.setItem("adminToken", authToken);
+                    localStorage.setItem("tenantId", data.tenantId);
                     document.getElementById("login-container").classList.add("hidden");
                     document.getElementById("top-right-actions").style.display = "block";
                     document.querySelector(".header").style.display = "flex";
@@ -413,6 +414,7 @@
             const username = document.getElementById("new-username").value;
             const password = document.getElementById("new-password").value;
             const storeId = document.getElementById("store-id").value;
+            const tenantId = localStorage.getItem("tenantId");
 
             feedback.textContent = "Creando...";
             feedback.className = "form-feedback";
@@ -424,7 +426,7 @@
                         "Content-Type": "application/json",
                         "Authorization": `Bearer ${authToken}`
                     },
-                    body: JSON.stringify({ username, password, storeId }),
+                    body: JSON.stringify({ username, password, storeId, tenantId }),
                 });
 
                 const data = await response.json();

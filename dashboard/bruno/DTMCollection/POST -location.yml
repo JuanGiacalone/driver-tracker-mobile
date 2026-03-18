@@ -1,17 +1,16 @@
 info:
-  name: POST /stores
+  name: POST /location
   type: http
-  seq: 3
+  seq: 4
 
 http:
   method: POST
-  url: "{{baseUrl}}/api/stores"
+  url: "{{baseUrl}}/api/location"
   body:
     type: json
     data: |2-
           {
-            "name": "AlemD1",
-            "tenantId":2,
+            "name": "New Terminal Branch",
             "lat": -38.0000,
             "lng": -57.5500
           }

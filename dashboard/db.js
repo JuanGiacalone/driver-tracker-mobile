@@ -11,13 +11,23 @@ const db = new Database(dbPath);
 db.pragma('foreign_keys = ON');
 
 function initDb() {
+    // Create tenants table
+    db.prepare(`
+        CREATE TABLE IF NOT EXISTS tenants (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE
+        )
+    `).run();
+
     // Create stores table
     db.prepare(`
         CREATE TABLE IF NOT EXISTS stores (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
+            tenant_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
             lat REAL,
-            lng REAL
+            lng REAL,
+            FOREIGN KEY (tenant_id) REFERENCES tenants(id)
         )
     `).run();
 
@@ -34,33 +44,68 @@ function initDb() {
         db.prepare("UPDATE stores SET lat = ?, lng = ? WHERE name = ?").run(-37.9850, -57.5600, 'North Branch');
     }
 
+    // Migration: Add tenant_id to stores if it doesn't exist
+    const hasTenantIdStores = tableInfo.some(col => col.name === 'tenant_id');
+    if (!hasTenantIdStores) {
+        console.log('[DB] Migrating stores table to include tenant_id...');
+        db.prepare("ALTER TABLE stores ADD COLUMN tenant_id INTEGER REFERENCES tenants(id)").run();
+    }
+
     // Create users table
     db.prepare(`
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id INTEGER NOT NULL,
             username TEXT NOT NULL UNIQUE,
             password TEXT NOT NULL,
             is_admin BOOLEAN DEFAULT 0,
             store_id INTEGER,
+            FOREIGN KEY (tenant_id) REFERENCES tenants(id),
             FOREIGN KEY (store_id) REFERENCES stores(id)
         )
     `).run();
 
+    // Migration: Add tenant_id to users if it doesn't exist
+    const userTableInfo = db.prepare("PRAGMA table_info(users)").all();
+    const hasTenantIdUsers = userTableInfo.some(col => col.name === 'tenant_id');
+    if (!hasTenantIdUsers) {
+        console.log('[DB] Migrating users table to include tenant_id...');
+        db.prepare("ALTER TABLE users ADD COLUMN tenant_id INTEGER REFERENCES tenants(id)").run();
+    }
+
     // Check if seeding is needed
+    // Seed default tenant if it doesn't exist
+    const tenantCount = db.prepare('SELECT COUNT(*) as count FROM tenants').get();
+    let defaultTenantId;
+    if (tenantCount.count === 0) {
+        console.log('[DB] Seeding default tenant...');
+        const result = db.prepare('INSERT INTO tenants (name) VALUES (?)').run('Lucciano');
+        defaultTenantId = result.lastInsertRowid;
+    } else {
+        defaultTenantId = db.prepare('SELECT id FROM tenants ORDER BY id ASC LIMIT 1').get().id;
+    }
+
+    // Seed stores if they don't exist
     const storeCount = db.prepare('SELECT COUNT(*) as count FROM stores').get();
     if (storeCount.count === 0) {
         console.log('[DB] Seeding stores...');
-        const insertStore = db.prepare('INSERT INTO stores (name, lat, lng) VALUES (?, ?, ?)');
-        insertStore.run('Central Store', -38.0055, -57.5426);
-        insertStore.run('North Branch', -37.9850, -57.5600);
+        const insertStore = db.prepare('INSERT INTO stores (tenant_id, name, lat, lng) VALUES (?, ?, ?, ?)');
+        insertStore.run(defaultTenantId, 'Central Store', -38.0055, -57.5426);
+        insertStore.run(defaultTenantId, 'North Branch', -37.9850, -57.5600);
     }
 
+    // Safety check: ensure existing stores have a tenant_id after migration
+    if (!hasTenantIdStores || storeCount.count > 0) {
+        db.prepare('UPDATE stores SET tenant_id = ? WHERE tenant_id IS NULL').run(defaultTenantId);
+    }
+
+    // Seed users if they don't exist
     const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
     if (userCount.count === 0) {
         console.log('[DB] Seeding users...');
         const insertUser = db.prepare(`
-            INSERT INTO users (username, password, is_admin, store_id) 
-            VALUES (?, ?, ?, ?)
+            INSERT INTO users (tenant_id, username, password, is_admin, store_id) 
+            VALUES (?, ?, ?, ?, ?)
         `);
 
         const centralStoreId = db.prepare('SELECT id FROM stores WHERE name = ?').get('Central Store').id;
@@ -68,6 +113,7 @@ function initDb() {
 
         // Admin
         insertUser.run(
+            defaultTenantId,
             process.env.ADMIN_USERNAME || 'admin',
             process.env.ADMIN_PASSWORD || 'adminpass',
             1,
@@ -75,8 +121,13 @@ function initDb() {
         );
 
         // Riders
-        insertUser.run('rider1', 'password123', 0, centralStoreId);
-        insertUser.run('rider2@example.com', 'password123', 0, northBranchId);
+        insertUser.run(defaultTenantId, 'rider1', 'password123', 0, centralStoreId);
+        insertUser.run(defaultTenantId, 'rider2@example.com', 'password123', 0, northBranchId);
+    }
+
+    // Safety check: ensure existing users have a tenant_id after migration
+    if (!hasTenantIdUsers || userCount.count > 0) {
+        db.prepare('UPDATE users SET tenant_id = ? WHERE tenant_id IS NULL').run(defaultTenantId);
     }
 }
 
