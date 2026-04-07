@@ -108,6 +108,16 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
   }
 });
 
+export interface DeliveryData {
+  deliveryId: number;
+  storeId: number;
+  storeName: string | null;
+  customerAddress: string | null;
+  amount: number | null;
+  paymentMethod: string | null;
+  recipientName: string | null;
+}
+
 export interface LocationServiceConfig {
   apiUrl: string;
   token: string;
@@ -115,6 +125,7 @@ export interface LocationServiceConfig {
   storeId?: string;
   onLocationUpdate?: (location: LocationData) => void;
   onConnectionChange?: (connected: boolean) => void;
+  onNewDelivery?: (delivery: DeliveryData) => void;
   onError?: (error: string) => void;
 }
 
@@ -253,6 +264,12 @@ export class LocationService {
         this.socket.on("connect_error", (error) => {
           this.config.onError?.("Error de conexión");
           reject(error);
+        });
+
+        // Listen for new delivery assignments
+        this.socket.on("new-delivery", (data: DeliveryData) => {
+          console.log("[LocationService] New delivery received:", data);
+          this.config.onNewDelivery?.(data);
         });
 
         const timeout = setTimeout(() => {

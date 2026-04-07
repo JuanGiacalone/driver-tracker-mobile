@@ -13,7 +13,7 @@ import {
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuth } from "@/lib/auth-context";
-import { LocationService, LocationData } from "@/lib/location-service";
+import { LocationService, LocationData, DeliveryData } from "@/lib/location-service";
 import { useColors } from "@/hooks/use-colors";
 import { cn } from "@/lib/utils";
 import {
@@ -21,6 +21,7 @@ import {
   stopShiftTimer,
   resetIdleTimer,
   checkForActiveShift,
+  notifyNewDelivery,
   SHIFT_DURATION_MS,
 } from "@/lib/shift-manager";
 
@@ -54,6 +55,7 @@ export default function ShiftScreen() {
   const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<"connected" | "disconnected" | "connecting">("disconnected");
   const [lastUpdate, setLastUpdate] = useState<string>("");
+  const [activeDelivery, setActiveDelivery] = useState<DeliveryData | null>(null);
 
   // Timer state
   const [remainingMs, setRemainingMs] = useState<number>(SHIFT_DURATION_MS);
@@ -111,6 +113,11 @@ export default function ShiftScreen() {
       },
       onError: (error) => {
         Alert.alert("Error", error);
+      },
+      onNewDelivery: async (delivery) => {
+        console.log("[ShiftScreen] New delivery:", delivery);
+        setActiveDelivery(delivery);
+        await notifyNewDelivery(delivery);
       },
     });
 
@@ -398,6 +405,45 @@ export default function ShiftScreen() {
                     {state.stores.find((s: any) => s.id.toString() === state.storeId)?.name || "Desconocida"}
                   </Text>
                 </View>
+              </View>
+            )}
+
+            {/* Active Delivery Card */}
+            {activeDelivery && shiftActive && (
+              <View className="w-full bg-amber-50 rounded-2xl p-5 border border-amber-200">
+                <View className="flex-row items-center mb-3">
+                  <Text className="text-lg mr-2">📦</Text>
+                  <Text className="text-base font-bold text-gray-900">Entrega Activa</Text>
+                </View>
+
+                {activeDelivery.recipientName && (
+                  <View className="flex-row items-center mb-2">
+                    <Text className="text-sm mr-2">👤</Text>
+                    <Text className="text-sm text-gray-800 font-semibold">{activeDelivery.recipientName}</Text>
+                  </View>
+                )}
+
+                <View className="flex-row gap-4 mb-2">
+                  {activeDelivery.amount != null && (
+                    <View className="flex-row items-center">
+                      <Text className="text-sm mr-1">💰</Text>
+                      <Text className="text-sm font-bold text-green-700">${activeDelivery.amount.toFixed(2)}</Text>
+                    </View>
+                  )}
+                  {activeDelivery.paymentMethod && (
+                    <View className="flex-row items-center">
+                      <Text className="text-sm mr-1">💳</Text>
+                      <Text className="text-sm text-gray-700">{activeDelivery.paymentMethod}</Text>
+                    </View>
+                  )}
+                </View>
+
+                {activeDelivery.customerAddress && (
+                  <View className="flex-row items-center pt-2 border-t border-amber-200">
+                    <Text className="text-sm mr-1">📍</Text>
+                    <Text className="text-sm text-gray-600">{activeDelivery.customerAddress}</Text>
+                  </View>
+                )}
               </View>
             )}
 

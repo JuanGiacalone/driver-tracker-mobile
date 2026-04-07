@@ -136,6 +136,30 @@ export async function notifyAutoEnd(): Promise<void> {
 }
 
 /**
+ * Fire an immediate notification when a new delivery is assigned to the rider.
+ */
+export async function notifyNewDelivery(delivery: {
+  recipientName?: string | null;
+  amount?: number | null;
+  paymentMethod?: string | null;
+  customerAddress?: string | null;
+}): Promise<void> {
+  const parts: string[] = [];
+  if (delivery.recipientName) parts.push(delivery.recipientName);
+  if (delivery.amount != null) parts.push(`$${delivery.amount.toFixed(2)}`);
+  if (delivery.paymentMethod) parts.push(delivery.paymentMethod);
+  if (delivery.customerAddress) parts.push(`📍 ${delivery.customerAddress}`);
+
+  await _scheduleNotification({
+    id: "delivery-new",
+    title: "📦 Nueva entrega asignada",
+    body: parts.length > 0 ? parts.join(" · ") : "Se te asignó una nueva entrega",
+    secondsFromNow: 1,
+  });
+  console.log("[ShiftManager] New delivery notification sent");
+}
+
+/**
  * Returns the elapsed milliseconds of an active shift, or `null` if no shift
  * is stored.  Use this on app launch to re-attach to a running shift.
  */
